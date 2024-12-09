@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sport Timer</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Sport Timer</h1>
+      <form id="timerForm">
+        <label for="activityTime">Temps d'activité (secondes):</label>
+        <input type="number" id="activityTime" min="1" required />
+
+        <label for="restTime">Temps de pause (secondes):</label>
+        <input type="number" id="restTime" min="1" required />
+
+        <label for="sessionDuration">Durée de la session (minutes):</label>
+        <input type="number" id="sessionDuration" min="1" required />
+
+        <button type="button" id="saveFavoriteButton">
+          Enregistrer comme favori
+        </button>
+        <button type="submit">Lancer la session</button>
+      </form>
+
+      <div id="timerDisplay" class="hidden">
+        <h2 id="phaseTitle">Phase:</h2>
+        <h3 id="timer">00:00</h3>
+        <button id="stopButton">Arrêter la session</button>
+      </div>
+
+      <div id="favorites" class="hidden">
+        <h3>Favoris</h3>
+        <ul id="favoritesList"></ul>
+      </div>
+    </div>
+
+    <footer>
+      Outil développé par
+      <a
+        href="https://github.com/Joris-Lft"
+        class="link"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Joris Lefait</a
+      >
+    </footer>
+
+    <audio id="beepSound">
+      <source src="bip.mp3" type="audio/mpeg" />
+      Votre navigateur ne supporte pas les fichiers audio.
+    </audio>
+    <audio id="beepEndSound">
+      <source src="bip-end.mp3" type="audio/mpeg" />
+      Votre navigateur ne supporte pas les fichiers audio.
+    </audio>
+
+    <script src="script.js"></script>
+  </body>
+</html>
