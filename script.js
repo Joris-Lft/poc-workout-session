@@ -1,159 +1,202 @@
-const form = document.getElementById("timerForm");
-const timerDisplay = document.getElementById("timerDisplay");
-const phaseTitle = document.getElementById("phaseTitle");
-const timerElement = document.getElementById("timer");
-const stopButton = document.getElementById("stopButton");
-const beepSound = document.getElementById("beepSound");
-const beepEndSound = document.getElementById("beepEndSound");
-const favoritesBloc = document.getElementById("favorites");
-const favoritesList = document.getElementById("favoritesList");
-const saveFavoriteButton = document.getElementById("saveFavoriteButton");
+// Select DOM elements
+const domElements = {
+  form: document.getElementById("timerForm"),
+  timerDisplay: document.getElementById("timerDisplay"),
+  phaseTitle: document.getElementById("phaseTitle"),
+  timerElement: document.getElementById("timer"),
+  stopButton: document.getElementById("stopButton"),
+  beepSound: document.getElementById("beepSound"),
+  beepEndSound: document.getElementById("beepEndSound"),
+  favoritesBloc: document.getElementById("favorites"),
+  favoritesList: document.getElementById("favoritesList"),
+  saveFavoriteButton: document.getElementById("saveFavoriteButton"),
+};
 
-let intervalId = null;
+// Handle favorites
+const favoritesManager = {
+  favorites: JSON.parse(localStorage.getItem("favorites")) || [],
 
-form.addEventListener("submit", (event) => {
-  event.preventDefault();
+  save(favorite) {
+    this.favorites.push(favorite);
+    localStorage.setItem("favorites", JSON.stringify(this.favorites));
+    this.render();
+  },
 
-  const activityTime = parseInt(
-    document.getElementById("activityTime").value,
-    10
-  );
-  const restTime = parseInt(document.getElementById("restTime").value, 10);
-  const sessionDuration = parseInt(
-    document.getElementById("sessionDuration").value,
-    10
-  );
+  render() {
+    domElements.favoritesList.innerHTML = "";
 
-  const totalTime = sessionDuration * 60; // Convert to seconds
+    if (this.favorites.length > 0) {
+      domElements.favoritesBloc.classList.remove("hidden");
+
+      this.favorites.forEach((favorite, index) => {
+        const listItem = document.createElement("li");
+        listItem.innerHTML = `
+          Activité: ${favorite.activityTime}s, 
+          Repos: ${favorite.restTime}s, 
+          Session: ${favorite.sessionDuration}min </br>
+          <button class="load-button">Utiliser</button>
+          <button class="delete-button">Supprimer</button>
+        `;
+
+        listItem
+          .querySelector(".load-button")
+          .addEventListener("click", () => this.load(index));
+        listItem
+          .querySelector(".delete-button")
+          .addEventListener("click", () => this.delete(index));
+
+        listItem.classList.add("favorite-item");
+
+        domElements.favoritesList.appendChild(listItem);
+      });
+    } else {
+      domElements.favoritesBloc.classList.add("hidden");
+    }
+  },
+
+  load(index) {
+    const favorite = this.favorites[index];
+
+    document.getElementById("activityTime").value = favorite.activityTime;
+    document.getElementById("restTime").value = favorite.restTime;
+    document.getElementById("sessionDuration").value = favorite.sessionDuration;
+
+    const submitEvent = new Event("submit", {
+      bubbles: true,
+      cancelable: true,
+    });
+    domElements.form.dispatchEvent(submitEvent);
+  },
+
+  delete(index) {
+    this.favorites.splice(index, 1);
+    localStorage.setItem("favorites", JSON.stringify(this.favorites));
+    this.render();
+  },
+};
+
+// Utils
+const utils = {
+  parseInput(inputId) {
+    const input = document.getElementById(inputId);
+    const value = parseInt(input.value, 10);
+
+    if (isNaN(value) || value < 1) {
+      input.setCustomValidity("Valeur invalide");
+      input.reportValidity();
+      throw new Error(`Invalid input for ${inputId}`);
+    }
+
+    return value;
+  },
+
+  updateTimerDisplay(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    domElements.timerElement.textContent = `${String(minutes).padStart(
+      2,
+      "0"
+    )}:${String(remainingSeconds).padStart(2, "0")}`;
+  },
+
+  playSound(audioElement) {
+    audioElement.currentTime = 0;
+    audioElement
+      .play()
+      .catch((error) => console.error("Audio play failed:", error));
+  },
+};
+
+// Handle timer
+function startTimer() {
+  const activityTime = utils.parseInput("activityTime");
+  const restTime = utils.parseInput("restTime");
+  const sessionDuration = utils.parseInput("sessionDuration");
+
+  const totalTime = sessionDuration * 60;
   let elapsedTime = 0;
   let isActivityPhase = true;
   let remainingTime = activityTime;
 
-  form.classList.add("hidden");
-  favoritesBloc.classList.add("hidden");
-  timerDisplay.classList.remove("hidden");
+  // Hide form and display timer
+  domElements.form.classList.add("hidden");
+  domElements.favoritesBloc.classList.add("hidden");
+  domElements.timerDisplay.classList.remove("hidden");
 
-  phaseTitle.textContent = "Phase: Activité";
-  updateTimerDisplay(remainingTime);
-  beepSound.play();
+  // Initial config
+  domElements.phaseTitle.textContent = "Phase: Activité";
+  utils.updateTimerDisplay(remainingTime);
+  utils.playSound(domElements.beepSound);
 
-  intervalId = setInterval(() => {
+  const intervalId = setInterval(() => {
     remainingTime--;
     elapsedTime++;
 
+    // Phase transition
     if (remainingTime <= 0) {
-      beepSound.currentTime = 0; // Reset sound to the start
-      beepSound.play();
-
       isActivityPhase = !isActivityPhase;
-      phaseTitle.textContent = `Phase: ${
+      domElements.phaseTitle.textContent = `Phase: ${
         isActivityPhase ? "Activité" : "Repos"
       }`;
       remainingTime = isActivityPhase ? activityTime : restTime;
+      utils.playSound(domElements.beepSound);
     }
 
-    updateTimerDisplay(remainingTime);
+    utils.updateTimerDisplay(remainingTime);
 
+    // End of session
     if (elapsedTime >= totalTime) {
-      beepEndSound.play();
-      clearInterval(intervalId);
-      endSession();
+      endSession(intervalId);
     }
   }, 1000);
-});
+}
 
-stopButton.addEventListener("click", () => {
+function endSession(intervalId) {
   clearInterval(intervalId);
-  endSession();
-});
+  utils.playSound(domElements.beepEndSound);
+  domElements.phaseTitle.textContent = "Session terminée !";
 
-function updateTimerDisplay(seconds) {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  timerElement.textContent = `${String(minutes).padStart(2, "0")}:${String(
-    remainingSeconds
-  ).padStart(2, "0")}`;
-}
-
-function endSession() {
-  phaseTitle.textContent = "Session terminée !";
   setTimeout(() => {
-    // Reset UI
-    form.reset();
-    form.classList.remove("hidden");
-    timerDisplay.classList.add("hidden");
-    if (favorites.length > 0) {
-      favoritesBloc.classList.remove("hidden");
-    }
-  }, 2000); // Wait 2 seconds before resetting
+    resetUI();
+  }, 2000);
 }
 
-/**
- * Favorites
- */
-let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
+function resetUI() {
+  domElements.form.reset();
+  domElements.form.classList.remove("hidden");
+  domElements.timerDisplay.classList.add("hidden");
 
-function saveFavorite() {
-  const activityTime = parseInt(activityTime.valueOf, 10);
-  const restTime = parseInt(restTime.valueOf, 10);
-  const sessionDuration = parseInt(sessionDuration.valueOf, 10);
-
-  const favorite = { activityTime, restTime, sessionDuration };
-  favorites.push(favorite);
-  localStorage.setItem("favorites", JSON.stringify(favorites));
-
-  renderFavorites();
-}
-
-function renderFavorites() {
-  favoritesList.innerHTML = ""; // Clear existing list
-
-  if (favorites.length > 0) {
-    favoritesBloc.classList.remove("hidden");
-
-    favorites.forEach((favorite, index) => {
-      const listItem = document.createElement("li");
-      listItem.textContent = `Activité: ${favorite.activityTime}s, Repos: ${favorite.restTime}s, Session: ${favorite.sessionDuration}min`;
-      listItem.classList.add("favorite-item");
-
-      const loadButton = document.createElement("button");
-      loadButton.textContent = "Utiliser";
-      loadButton.classList.add("load-button");
-      loadButton.addEventListener("click", () => loadFavorite(index));
-
-      const deleteButton = document.createElement("button");
-      deleteButton.textContent = "Supprimer";
-      deleteButton.classList.add("delete-button");
-      deleteButton.addEventListener("click", () => deleteFavorite(index));
-
-      listItem.appendChild(loadButton);
-      listItem.appendChild(deleteButton);
-      favoritesList.appendChild(listItem);
-    });
-  } else {
-    favoritesBloc.classList.add("hidden");
+  if (favoritesManager.favorites.length > 0) {
+    domElements.favoritesBloc.classList.remove("hidden");
   }
 }
 
-function loadFavorite(index) {
-  const favorite = favorites[index];
-  document.getElementById("activityTime").value = favorite.activityTime;
-  document.getElementById("restTime").value = favorite.restTime;
-  document.getElementById("sessionDuration").value = favorite.sessionDuration;
+// Events listener
+domElements.form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  startTimer();
+});
 
-  // launch session
-  const submitEvent = new Event("submit", { bubbles: true, cancelable: true });
-  form.dispatchEvent(submitEvent);
-}
+domElements.stopButton.addEventListener("click", () => {
+  const activeInterval = setInterval(() => {}, 1); // Get the last interval
+  endSession(activeInterval);
+});
 
-function deleteFavorite(index) {
-  favorites.splice(index, 1);
-  localStorage.setItem("favorites", JSON.stringify(favorites));
-  renderFavorites();
-}
+domElements.saveFavoriteButton.addEventListener("click", () => {
+  try {
+    const favorite = {
+      activityTime: utils.parseInput("activityTime"),
+      restTime: utils.parseInput("restTime"),
+      sessionDuration: utils.parseInput("sessionDuration"),
+    };
 
-// Event listener for saving a favorite
-saveFavoriteButton.addEventListener("click", saveFavorite);
+    favoritesManager.save(favorite);
+  } catch (error) {
+    console.error("Erreur lors de l'enregistrement du favori:", error);
+  }
+});
 
-// Initialize favorites on page load
-document.addEventListener("DOMContentLoaded", renderFavorites);
+// Init favorites
+document.addEventListener("DOMContentLoaded", () => {
+  favoritesManager.render();
+});
